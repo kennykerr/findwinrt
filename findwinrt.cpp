@@ -124,46 +124,10 @@ std::string get_version(std::wstring const& filename)
 }
 
 static bool dash_version = false;
+static bool dash_time = false;
 static std::map<std::wstring, std::string> paths;
 static std::map<std::string, std::set<std::wstring>> versions;
 static std::mutex store_lock;
-
-void store(std::wstring const& filename, std::string const& version)
-{
-    std::lock_guard<std::mutex> guard(store_lock);
-
-    if (dash_version)
-    {
-        versions[version].insert(filename);
-    }
-    else
-    {
-        paths[filename] = version;
-    }
-}
-
-void print()
-{
-    if (dash_version)
-    {
-        for (auto&& version : versions)
-        {
-            printf("\n[%s]\n", version.first.c_str());
-
-            for (auto&& filename : version.second)
-            {
-                printf("%ls\n", filename.c_str());
-            }
-        }
-    }
-    else
-    {
-        for (auto&& path : paths)
-        {
-            printf("[%s] %ls\n", path.second.c_str(), path.first.c_str());
-        }
-    }
-}
 
 IAsyncAction find_version(std::wstring const filename)
 {
@@ -172,16 +136,16 @@ IAsyncAction find_version(std::wstring const filename)
 
     if (!version.empty())
     {
-        store(filename, version);
-    }
-}
+        std::lock_guard<std::mutex> guard(store_lock);
 
-template <typename Collection>
-void get_all(Collection const& collection)
-{
-    for (auto&& item : collection)
-    {
-        item.get();
+        if (dash_version)
+        {
+            versions[version].insert(filename);
+        }
+        else
+        {
+            paths[filename] = version;
+        }
     }
 }
 
@@ -189,9 +153,30 @@ int wmain(int argc, wchar_t** argv)
 {
     auto start = high_resolution_clock::now();
 
-    if (argc == 2 && 0 == wcscmp(argv[1], L"-v"))
+    for (int arg = 1; arg < argc; ++arg)
     {
-        dash_version = true;
+        if (0 == wcscmp(argv[arg], L"-v"))
+        {
+            dash_version = true;
+        }
+        else if (0 == wcscmp(argv[arg], L"-t"))
+        {
+            dash_time = true;
+        }
+        else
+        {
+            printf(R"(
+Searches for binaries using C++/WinRT
+Created by Kenny Kerr
+
+findwinrt.exe [options...]
+
+  -v Sort output by version
+  -t Show search time
+)");
+
+            return 0;
+        }
     }
 
     std::vector<IAsyncAction> finders;
@@ -214,7 +199,33 @@ int wmain(int argc, wchar_t** argv)
         finders.push_back(find_version(item.path()));
     }
 
-    get_all(finders);
-    print();
-    printf("\nTime: %llums\n", duration_cast<milliseconds>(high_resolution_clock::now() - start).count());
+    for (auto&& item : finders)
+    {
+        item.get();
+    }
+
+    if (dash_version)
+    {
+        for (auto&& version : versions)
+        {
+            printf("\n[%s]\n", version.first.c_str());
+
+            for (auto&& filename : version.second)
+            {
+                printf("%ls\n", filename.c_str());
+            }
+        }
+    }
+    else
+    {
+        for (auto&& path : paths)
+        {
+            printf("[%s] %ls\n", path.second.c_str(), path.first.c_str());
+        }
+    }
+
+    if (dash_time)
+    {
+        printf("\nTime: %llums\n", duration_cast<milliseconds>(high_resolution_clock::now() - start).count());
+    }
 }
