@@ -166,7 +166,7 @@ int wmain(int argc, wchar_t** argv)
         else
         {
             printf(R"(
-Searches for binaries using C++/WinRT
+Searches for binaries built with C++/WinRT
 Created by Kenny Kerr
 
 findwinrt.exe [options...]
