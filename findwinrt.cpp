@@ -1,4 +1,4 @@
-#include "C:\git\cppwinrt\DevProjection\winrt\base.h"
+#include <winrt/Windows.Foundation.h>
 #include <filesystem>
 #include <set>
 #include <algorithm>
