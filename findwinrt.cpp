@@ -226,6 +226,6 @@ findwinrt.exe [options...]
 
     if (dash_time)
     {
-        printf("\nTime: %llums\n", duration_cast<milliseconds>(high_resolution_clock::now() - start).count());
+        printf("\nTime: %llus\n", duration_cast<seconds>(high_resolution_clock::now() - start).count());
     }
 }
