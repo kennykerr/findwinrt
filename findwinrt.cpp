@@ -10,40 +10,6 @@ using namespace std::chrono;
 using namespace std::experimental::filesystem;
 using namespace std::string_view_literals;
 
-struct handle_traits
-{
-    using type = HANDLE;
-
-    static void close(HANDLE value) noexcept
-    {
-        WINRT_VERIFY_(TRUE, CloseHandle(value));
-    }
-
-    static constexpr HANDLE invalid() noexcept
-    {
-        return nullptr;
-    }
-};
-
-using handle = impl::handle<handle_traits>;
-
-struct file_handle_traits
-{
-    using type = HANDLE;
-
-    static void close(HANDLE value) noexcept
-    {
-        WINRT_VERIFY_(TRUE, CloseHandle(value));
-    }
-
-    static constexpr HANDLE invalid() noexcept
-    {
-        return INVALID_HANDLE_VALUE;
-    }
-};
-
-using file_handle = impl::handle<file_handle_traits>;
-
 struct file_view
 {
     explicit file_view(std::wstring const& name) noexcept
@@ -125,11 +91,13 @@ std::string get_version(std::wstring const& filename)
 
 static bool dash_version = false;
 static bool dash_time = false;
+static bool dash_unique = false;
 static std::map<std::wstring, std::string> paths;
 static std::map<std::string, std::set<std::wstring>> versions;
+static std::set<std::wstring> unique;
 static std::mutex store_lock;
 
-IAsyncAction find_version(std::wstring const filename)
+IAsyncAction find_version(path const filename)
 {
     co_await resume_background();
     std::string const version = get_version(filename);
@@ -145,6 +113,11 @@ IAsyncAction find_version(std::wstring const filename)
         else
         {
             paths[filename] = version;
+        }
+
+        if (dash_unique)
+        {
+            unique.insert(filename.filename());
         }
     }
 }
@@ -163,6 +136,10 @@ int wmain(int argc, wchar_t** argv)
         {
             dash_time = true;
         }
+        else if (0 == wcscmp(argv[arg], L"-u"))
+        {
+            dash_unique = true;
+        }
         else
         {
             printf(R"(
@@ -172,6 +149,7 @@ Created by Kenny Kerr
 findwinrt.exe [options...]
 
   -v Sort output by version
+  -u Show unique file names
   -t Show search time
 )");
 
@@ -221,6 +199,16 @@ findwinrt.exe [options...]
         for (auto&& path : paths)
         {
             printf("[%s] %ls\n", path.second.c_str(), path.first.c_str());
+        }
+    }
+
+    if (dash_unique)
+    {
+        printf("\n[unique]\n");
+
+        for (auto&& filename : unique)
+        {
+            printf("%ls\n", filename.c_str());
         }
     }
 

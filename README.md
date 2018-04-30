@@ -10,6 +10,7 @@ Created by Kenny Kerr
 findwinrt.exe [options...]
 
   -v Sort output by version
+  -u Show unique file names
   -t Show search time
 ```
 
