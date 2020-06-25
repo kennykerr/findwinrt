@@ -126,96 +126,103 @@ IAsyncAction find_version(path const filename)
 
 int wmain(int argc, wchar_t** argv)
 {
-    auto start = high_resolution_clock::now();
-
-    for (int arg = 1; arg < argc; ++arg)
+    try
     {
-        if (0 == wcscmp(argv[arg], L"-v"))
+        auto start = high_resolution_clock::now();
+
+        for (int arg = 1; arg < argc; ++arg)
         {
-            dash_version = true;
+            if (0 == wcscmp(argv[arg], L"-v"))
+            {
+                dash_version = true;
+            }
+            else if (0 == wcscmp(argv[arg], L"-t"))
+            {
+                dash_time = true;
+            }
+            else if (0 == wcscmp(argv[arg], L"-u"))
+            {
+                dash_unique = true;
+            }
+            else
+            {
+                printf(R"(
+    Searches for binaries built with C++/WinRT
+    Created by Kenny Kerr
+
+    findwinrt.exe [options...]
+
+      -v Sort output by version
+      -u Show unique file names
+      -t Show search time
+    )");
+
+                return 0;
+            }
         }
-        else if (0 == wcscmp(argv[arg], L"-t"))
+
+        std::vector<IAsyncAction> finders;
+
+        for (auto&& item : recursive_directory_iterator(current_path(), directory_options::skip_permission_denied))
         {
-            dash_time = true;
+            if (is_directory(item))
+            {
+                continue;
+            }
+
+            std::wstring extension = item.path().extension();
+            std::transform(extension.begin(), extension.end(), extension.begin(), towlower);
+
+            if (extension != L".exe" && extension != L".dll")
+            {
+                continue;
+            }
+
+            finders.push_back(find_version(item.path()));
         }
-        else if (0 == wcscmp(argv[arg], L"-u"))
+
+        for (auto&& item : finders)
         {
-            dash_unique = true;
+            item.get();
+        }
+
+        if (dash_version)
+        {
+            for (auto&& version : versions)
+            {
+                printf("\n[%s]\n", version.first.c_str());
+
+                for (auto&& filename : version.second)
+                {
+                    printf("%ls\n", filename.c_str());
+                }
+            }
         }
         else
         {
-            printf(R"(
-Searches for binaries built with C++/WinRT
-Created by Kenny Kerr
-
-findwinrt.exe [options...]
-
-  -v Sort output by version
-  -u Show unique file names
-  -t Show search time
-)");
-
-            return 0;
-        }
-    }
-
-    std::vector<IAsyncAction> finders;
-
-    for (auto&& item : recursive_directory_iterator(current_path()))
-    {
-        if (is_directory(item))
-        {
-            continue;
+            for (auto&& path : paths)
+            {
+                printf("[%s] %ls\n", path.second.c_str(), path.first.c_str());
+            }
         }
 
-        std::wstring extension = item.path().extension();
-        std::transform(extension.begin(), extension.end(), extension.begin(), towlower);
-
-        if (extension != L".exe" && extension != L".dll")
+        if (dash_unique)
         {
-            continue;
-        }
+            printf("\n[unique]\n");
 
-        finders.push_back(find_version(item.path()));
-    }
-
-    for (auto&& item : finders)
-    {
-        item.get();
-    }
-
-    if (dash_version)
-    {
-        for (auto&& version : versions)
-        {
-            printf("\n[%s]\n", version.first.c_str());
-
-            for (auto&& filename : version.second)
+            for (auto&& filename : unique)
             {
                 printf("%ls\n", filename.c_str());
             }
         }
-    }
-    else
-    {
-        for (auto&& path : paths)
+
+        if (dash_time)
         {
-            printf("[%s] %ls\n", path.second.c_str(), path.first.c_str());
+            printf("\nTime: %llus\n", duration_cast<seconds>(high_resolution_clock::now() - start).count());
         }
     }
-
-    if (dash_unique)
+    catch (std::exception const& e)
     {
-        printf("\n[unique]\n");
-
-        for (auto&& filename : unique)
-        {
-            printf("%ls\n", filename.c_str());
-        }
-    }
-
-    if (dash_time)
-    {
-        printf("\nTime: %llus\n", duration_cast<seconds>(high_resolution_clock::now() - start).count());
+        printf("Error: %s\n", e.what());
     }
 }
