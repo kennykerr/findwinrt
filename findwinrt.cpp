@@ -1,26 +1,28 @@
+#include <Windows.h>
 #include <winrt/Windows.Foundation.h>
 #include <filesystem>
 #include <set>
 #include <algorithm>
+#include <mutex>
 #include <string.h>
 
 using namespace winrt;
 using namespace Windows::Foundation;
 using namespace std::chrono;
-using namespace std::experimental::filesystem;
+using namespace std::filesystem;
 using namespace std::string_view_literals;
 
 struct file_view
 {
     explicit file_view(std::wstring const& name) noexcept
     {
-        file_handle const file = CreateFile(name.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        file_handle const file(CreateFile(name.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
         if (!file) { return; }
 
         WINRT_VERIFY(GetFileSizeEx(file.get(), reinterpret_cast<LARGE_INTEGER*>(&m_size)));
         if (m_size == 0) { return; }
 
-        handle const map = CreateFileMapping(file.get(), nullptr, PAGE_READONLY, 0, 0, nullptr);
+        handle const map(CreateFileMapping(file.get(), nullptr, PAGE_READONLY, 0, 0, nullptr));
         if (!map) { return; }
 
         m_view = static_cast<char const *>(MapViewOfFile(map.get(), FILE_MAP_READ, 0, 0, 0));
